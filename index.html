@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Cover Fixer for reMarkable</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007AFF;
+            padding-bottom: 10px;
+        }
+        .upload-area {
+            border: 2px dashed #007AFF;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            background: #e8f4ff;
+            border-color: #0051D5;
+        }
+        .upload-area.dragging {
+            background: #e8f4ff;
+            border-color: #0051D5;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0051D5;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.info {
+            background: #e8f4ff;
+            border: 1px solid #007AFF;
+            color: #004085;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+        .status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+        .issue-list {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .issue-list li {
+            margin: 5px 0;
+        }
+        .fixed {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .not-fixed {
+            color: #dc3545;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress {
+            margin: 15px 0;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 EPUB Cover Fixer for reMarkable</h1>
+        
+        <p>This tool automatically detects and fixes common EPUB cover display issues on reMarkable devices.</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p><strong>Drop EPUB file here or click to browse</strong></p>
+            <p style="color: #666; font-size: 14px;">Supports .epub files only</p>
+        </div>
+        
+        <input type="file" id="fileInput" accept=".epub">
+        
+        <div class="status info" id="statusInfo"></div>
+        <div class="status warning" id="statusWarning"></div>
+        <div class="status error" id="statusError"></div>
+        <div class="status success" id="statusSuccess"></div>
+        
+        <div class="controls" id="controls">
+            <button id="fixButton">🔧 Apply Fixes</button>
+            <button id="downloadButton" disabled>⬇️ Download Fixed EPUB</button>
+            <button id="resetButton">🔄 Upload Another File</button>
+        </div>
+    </div>
+
+    <script>
+    class EPUBCoverFixer {
+        constructor() {
+            this.zip = null;
+            this.issues = [];
+            this.fixes = [];
+            this.fixedZip = null;
+            this.filename = '';
+            this.opfPath = '';
+            this.opfDir = '';
+            this.coverImagePath = '';
+            this.setupEventListeners();
+        }
+
+        setupEventListeners() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const fixButton = document.getElementById('fixButton');
+            const downloadButton = document.getElementById('downloadButton');
+            const resetButton = document.getElementById('resetButton');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragging');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragging');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragging');
+                if (e.dataTransfer.files.length > 0) {
+                    this.handleFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    this.handleFile(e.target.files[0]);
+                }
+            });
+            
+            fixButton.addEventListener('click', () => this.applyFixes());
+            downloadButton.addEventListener('click', () => this.downloadFixed());
+            resetButton.addEventListener('click', () => this.reset());
+        }
+
+        async handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.epub')) {
+                this.showError('Please select a valid EPUB file');
+                return;
+            }
+            
+            this.filename = file.name;
+            this.showInfo('Loading EPUB file...');
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                this.zip = await JSZip.loadAsync(arrayBuffer);
+                await this.analyzeEPUB();
+            } catch (error) {
+                this.showError('Failed to load EPUB: ' + error.message);
+            }
+        }
+
+        async analyzeEPUB() {
+            this.issues = [];
+            this.showInfo('Analyzing EPUB structure...');
+            
+            // Find container.xml
+            const containerXml = await this.getFileContent('META-INF/container.xml');
+            if (!containerXml) {
+                this.showError('Invalid EPUB: No container.xml found');
+                return;
+            }
+            
+            // Parse container to find OPF
+            const parser = new DOMParser();
+            const containerDoc = parser.parseFromString(containerXml, 'text/xml');
+            const rootfile = containerDoc.querySelector('rootfile');
+            if (!rootfile) {
+                this.showError('Invalid EPUB: No rootfile in container.xml');
+                return;
+            }
+            
+            this.opfPath = rootfile.getAttribute('full-path');
+            this.opfDir = this.opfPath.substring(0, this.opfPath.lastIndexOf('/'));
+            
+            // Check if using OEBPS instead of EPUB
+            if (this.opfDir.includes('OEBPS')) {
+                this.issues.push({
+                    type: 'directory',
+                    description: 'Uses OEBPS directory instead of EPUB',
+                    severity: 'medium'
+                });
+            }
+            
+            // Analyze OPF
+            const opfContent = await this.getFileContent(this.opfPath);
+            if (!opfContent) {
+                this.showError('Invalid EPUB: Cannot read OPF file');
+                return;
+            }
+            
+            const opfDoc = parser.parseFromString(opfContent, 'text/xml');
+            
+            // Check for cover metadata (EPUB 2.0 and 3.0 formats)
+            const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+            const coverItem = opfDoc.querySelector('item[properties*="cover-image"]');
+            
+            if (!coverMeta && !coverItem) {
+                this.issues.push({
+                    type: 'metadata',
+                    description: 'No cover image properly identified in metadata',
+                    severity: 'high'
+                });
+            } else if (coverMeta && !coverItem) {
+                // EPUB 2.0 style - check if cover image item lacks properties
+                const coverId = coverMeta.getAttribute('content');
+                const imageItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+                if (imageItem && !imageItem.getAttribute('properties')) {
+                    this.issues.push({
+                        type: 'metadata',
+                        description: 'Cover image missing properties="cover-image" attribute',
+                        severity: 'medium'
+                    });
+                }
+            }
+            
+            // Check spine for cover - multiple detection methods
+            const spine = opfDoc.querySelector('spine');
+            const spineItems = Array.from(spine.querySelectorAll('itemref'));
+            
+            // Method 1: Find items with cover-related terms in id or href (case-insensitive)
+            // Support multiple languages: cover, cubierta (Spanish), couverture (French), copertina (Italian), etc.
+            const coverTerms = ['cover', 'cubierta', 'couverture', 'copertina', 'capa', 'omslag'];
+            let coverInSpine = spineItems.find(ref => {
+                const id = ref.getAttribute('idref');
+                const item = opfDoc.querySelector(`item[id="${id}"]`);
+                if (!item) return false;
+                
+                const href = item.getAttribute('href') || '';
+                const itemId = item.getAttribute('id') || '';
+                
+                return coverTerms.some(term => 
+                    href.toLowerCase().includes(term) || 
+                    itemId.toLowerCase().includes(term)
+                );
+            });
+            
+            // Method 2: Check if first item in spine might be cover (common pattern)
+            if (!coverInSpine && spineItems.length > 0) {
+                const firstRef = spineItems[0];
+                const firstId = firstRef.getAttribute('idref');
+                const firstItem = opfDoc.querySelector(`item[id="${firstId}"]`);
+                
+                if (firstItem) {
+                    const href = firstItem.getAttribute('href') || '';
+                    // Check if it's likely a cover based on common patterns
+                    if (href.match(/01_|^cover|frontcover/i) || firstId.match(/cover|^x01/i)) {
+                        coverInSpine = firstRef;
+                        console.log(`Detected likely cover as first spine item: ${firstId}`);
+                    }
+                }
+            }
+            
+            // Method 3: Check if cover metadata points to a spine item or first item is likely cover
+            if (!coverInSpine && coverMeta) {
+                const coverId = coverMeta.getAttribute('content');
+                // Find if there's a spine item that references a cover HTML
+                coverInSpine = spineItems.find(ref => {
+                    const id = ref.getAttribute('idref');
+                    return id && coverTerms.some(term => id.toLowerCase().includes(term));
+                });
+            }
+            
+            // Method 4: Check if first spine item contains cover image or SVG (common in EPUB 2.0)
+            if (!coverInSpine && spineItems.length > 0 && coverMeta) {
+                const firstRef = spineItems[0];
+                const firstId = firstRef.getAttribute('idref');
+                const firstItem = opfDoc.querySelector(`item[id="${firstId}"]`);
+                if (firstItem) {
+                    // Check if this HTML file might be a cover by checking if it references cover image
+                    const coverId = coverMeta.getAttribute('content');
+                    if (coverId) {
+                        coverInSpine = firstRef;
+                        console.log(`Detected likely cover as first spine item that might reference cover image: ${firstId}`);
+                    }
+                }
+            }
+            
+            // Check if cover in spine has proper linear="no" attribute
+            if (coverInSpine) {
+                const linearAttr = coverInSpine.getAttribute('linear');
+                const refId = coverInSpine.getAttribute('idref');
+                if (linearAttr !== 'no') {
+                    this.issues.push({
+                        type: 'spine',
+                        description: `Cover in spine (id: ${refId}) missing linear="no" attribute`,
+                        severity: 'high'
+                    });
+                }
+            } else {
+                console.log('No cover detected in spine - this might be okay if cover is external');
+            }
+            
+            // Check for cover image location
+            let coverImageItem = coverItem;
+            if (!coverImageItem && coverMeta) {
+                const coverId = coverMeta.getAttribute('content');
+                coverImageItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+            }
+            
+            if (coverImageItem) {
+                this.coverImagePath = coverImageItem.getAttribute('href');
+                if (!this.coverImagePath.includes('covers/')) {
+                    this.issues.push({
+                        type: 'structure',
+                        description: 'Cover image not in covers/ subdirectory',
+                        severity: 'low'
+                    });
+                }
+                
+                // Check file extension
+                if (this.coverImagePath.endsWith('.jpeg')) {
+                    this.issues.push({
+                        type: 'format',
+                        description: 'Cover uses .jpeg extension instead of .jpg',
+                        severity: 'low'
+                    });
+                }
+            }
+            
+            // Check for cover HTML structure
+            const coverHtmlItem = opfDoc.querySelector('item[id*="cover"]:not([media-type*="image"])');
+            if (coverHtmlItem) {
+                const coverHtmlPath = this.resolvePathFromOPF(coverHtmlItem.getAttribute('href'));
+                const coverHtml = await this.getFileContent(coverHtmlPath);
+                if (coverHtml) {
+                    const coverDoc = parser.parseFromString(coverHtml, 'text/html');
+                    const hasFigure = coverDoc.querySelector('figure');
+                    const hasComplexDiv = coverDoc.querySelector('div[class*="height"]');
+                    
+                    if (!hasFigure && hasComplexDiv) {
+                        this.issues.push({
+                            type: 'html',
+                            description: 'Cover HTML uses complex div structure instead of simple figure/img',
+                            severity: 'medium'
+                        });
+                    }
+                }
+            }
+            
+            this.displayIssues();
+        }
+
+        displayIssues() {
+            if (this.issues.length === 0) {
+                this.showSuccess('✅ No cover issues detected! Your EPUB should work fine on reMarkable.');
+                document.getElementById('controls').style.display = 'block';
+                return;
+            }
+            
+            const highSeverity = this.issues.filter(i => i.severity === 'high').length;
+            const mediumSeverity = this.issues.filter(i => i.severity === 'medium').length;
+            const lowSeverity = this.issues.filter(i => i.severity === 'low').length;
+            
+            let message = `<strong>📋 Analysis Complete</strong><br><br>`;
+            message += `<strong>Found ${this.issues.length} potential issue(s):</strong><ul class="issue-list">`;
+            
+            this.issues.forEach(issue => {
+                const icon = issue.severity === 'high' ? '🔴' : 
+                            issue.severity === 'medium' ? '🟡' : '🟢';
+                message += `<li>${icon} ${issue.description}</li>`;
+            });
+            
+            message += '</ul>';
+            
+            if (highSeverity > 0) {
+                message += '<p style="background: #ffe5e5; padding: 10px; border-radius: 4px; margin-top: 10px;">';
+                message += '<strong>⚠️ High severity issues detected</strong><br>';
+                message += 'These issues likely cause cover display problems on reMarkable devices.';
+                message += '</p>';
+            }
+            
+            this.showWarning(message);
+            document.getElementById('controls').style.display = 'block';
+        }
+
+        async applyFixes() {
+            this.showInfo('Applying fixes...');
+            this.fixes = [];
+            
+            try {
+                // Create a new zip for the fixed version
+                this.fixedZip = new JSZip();
+                
+                // First pass: copy all files except what we'll modify
+                for (let [path, file] of Object.entries(this.zip.files)) {
+                    if (!file.dir) {
+                        // Skip files we'll handle specially
+                        if (path === this.opfPath || path.includes('container.xml')) {
+                            continue;
+                        }
+                        
+                        const content = await file.async('uint8array');
+                        
+                        // Rename OEBPS to EPUB if needed
+                        let newPath = path;
+                        if (path.includes('OEBPS/')) {
+                            newPath = path.replace('OEBPS/', 'EPUB/');
+                            if (!this.fixes.includes('Changed OEBPS directory to EPUB')) {
+                                this.fixes.push('Changed OEBPS directory to EPUB');
+                            }
+                        }
+                        
+                        // Handle cover image placement based on EPUB version
+                        if (this.coverImagePath && path.includes(this.coverImagePath)) {
+                            const filename = path.split('/').pop();
+                            
+                            // Get EPUB version to determine placement
+                            const opfContent = await this.getFileContent(this.opfPath);
+                            const parser = new DOMParser();
+                            const opfDoc = parser.parseFromString(opfContent, 'text/xml');
+                            const epubVersion = opfDoc.documentElement.getAttribute('version');
+                            
+                            if (epubVersion === '2.0') {
+                                // For EPUB 2.0, place cover image at root level as cover.jpeg
+                                const epubDir = this.opfDir.includes('OEBPS') ? 'EPUB' : this.opfDir;
+                                newPath = `${epubDir}/cover.jpeg`;
+                                this.fixes.push('Moved cover image to root level as cover.jpeg for EPUB 2.0');
+                            } else {
+                                // For EPUB 3.0+, use covers/ subdirectory
+                                if (!path.includes('/covers/')) {
+                                    newPath = newPath.replace(/\/images\//, '/covers/');
+                                    newPath = newPath.replace(filename, 'cover.jpg');
+                                    this.fixes.push('Moved cover image to covers/cover.jpg');
+                                }
+                            }
+                        }
+                        
+                        this.fixedZip.file(newPath, content);
+                    }
+                }
+                
+                // Create separate cover.xhtml at EPUB root
+                await this.createSeparateCover();
+                
+                // Fix OPF file
+                await this.fixOPF();
+                
+                // Update container.xml
+                await this.fixContainer();
+                
+                this.displayFixes();
+                document.getElementById('downloadButton').disabled = false;
+                
+            } catch (error) {
+                this.showError('Failed to apply fixes: ' + error.message);
+            }
+        }
+
+        async createSeparateCover() {
+            // Get EPUB version to determine approach
+            const opfContent = await this.getFileContent(this.opfPath);
+            const parser = new DOMParser();
+            const opfDoc = parser.parseFromString(opfContent, 'text/xml');
+            const epubVersion = opfDoc.documentElement.getAttribute('version');
+            
+            // Create appropriate cover HTML based on EPUB version
+            let coverHTML;
+            let fileName;
+            
+            if (epubVersion === '2.0') {
+                // EPUB 2.0 - create titlepage.xhtml at root (like working Atmosphere book)
+                // Use SVG structure like the working book
+                coverHTML = `<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <meta name="calibre:cover" content="true"/>
+        <title>Cover</title>
+        <style type="text/css" title="override_css">
+            @page {padding: 0pt; margin:0pt}
+            body { text-align: center; padding:0pt; margin: 0pt; }
+        </style>
+    </head>
+    <body>
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 600 900" preserveAspectRatio="none">
+                <image width="600" height="900" xlink:href="cover.jpeg"/>
+            </svg>
+        </div>
+    </body>
+</html>`;
+                fileName = 'titlepage.xhtml';
+            } else {
+                // EPUB 3.0+ - use figure/img structure
+                coverHTML = `<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">
+    <head>
+        <title>Cover</title>
+        <style type="text/css">
+            img{
+                max-width:100%;
+            }
+        </style>
+    </head>
+    <body>
+        <figure id="cover-image">
+            <img role="doc-cover" src="covers/cover.jpg" alt="Book Cover" />
+        </figure>
+    </body>
+</html>`;
+                fileName = 'cover.xhtml';
+            }
+            
+            const epubDir = this.opfDir.includes('OEBPS') ? 'EPUB' : this.opfDir;
+            this.fixedZip.file(`${epubDir}/${fileName}`, coverHTML);
+            this.fixes.push(`Created ${fileName} at ${epubDir} root for EPUB ${epubVersion}`);
+        }
+        
+        async fixOPF() {
+            const opfContent = await this.getFileContent(this.opfPath);
+            const parser = new DOMParser();
+            const opfDoc = parser.parseFromString(opfContent, 'text/xml');
+            const epubVersion = opfDoc.documentElement.getAttribute('version');
+            
+            // Update manifest to include new cover structure
+            const manifest = opfDoc.querySelector('manifest');
+            
+            // Add appropriate cover HTML file based on EPUB version
+            const coverItemId = epubVersion === '2.0' ? 'titlepage' : 'cover';
+            const coverFileName = epubVersion === '2.0' ? 'titlepage.xhtml' : 'cover.xhtml';
+            
+            if (!opfDoc.querySelector(`item[id="${coverItemId}"]`)) {
+                const coverItem = opfDoc.createElement('item');
+                coverItem.setAttribute('id', coverItemId);
+                coverItem.setAttribute('href', coverFileName);
+                coverItem.setAttribute('media-type', 'application/xhtml+xml');
+                manifest.insertBefore(coverItem, manifest.firstChild);
+                this.fixes.push(`Added ${coverFileName} to manifest`);
+            }
+            
+            // Update cover image reference
+            let coverImageItem = opfDoc.querySelector('item[properties*="cover-image"]');
+            if (!coverImageItem) {
+                const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+                if (coverMeta) {
+                    const coverId = coverMeta.getAttribute('content');
+                    coverImageItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+                }
+            }
+            
+            if (coverImageItem) {
+                // Update existing cover image item based on EPUB version
+                if (epubVersion === '2.0') {
+                    coverImageItem.setAttribute('href', 'cover.jpeg');
+                    this.fixes.push('Updated cover image path for EPUB 2.0');
+                } else {
+                    coverImageItem.setAttribute('href', 'covers/cover.jpg');
+                    coverImageItem.setAttribute('properties', 'cover-image');
+                    this.fixes.push('Updated cover image path to covers/cover.jpg');
+                }
+            } else {
+                // Check if we need to create/update cover image item
+                const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+                if (coverMeta) {
+                    const coverId = coverMeta.getAttribute('content');
+                    coverImageItem = opfDoc.querySelector(`item[id="${coverId}"]`);
+                    
+                    if (coverImageItem) {
+                        // Update existing item
+                        if (epubVersion === '2.0') {
+                            // For EPUB 2.0, place cover image at root level and use .jpeg extension
+                            coverImageItem.setAttribute('href', 'cover.jpeg');
+                            this.fixes.push('Updated cover image path for EPUB 2.0');
+                        } else {
+                            coverImageItem.setAttribute('href', 'covers/cover.jpg');
+                            coverImageItem.setAttribute('properties', 'cover-image');
+                            this.fixes.push('Updated cover image path to covers/cover.jpg');
+                        }
+                    }
+                } else {
+                    // Create new cover-image item
+                    const newCoverItem = opfDoc.createElement('item');
+                    newCoverItem.setAttribute('id', 'cover');
+                    if (epubVersion === '2.0') {
+                        newCoverItem.setAttribute('href', 'cover.jpeg');
+                    } else {
+                        newCoverItem.setAttribute('href', 'covers/cover.jpg');
+                        newCoverItem.setAttribute('properties', 'cover-image');
+                    }
+                    newCoverItem.setAttribute('media-type', 'image/jpeg');
+                    manifest.appendChild(newCoverItem);
+                    this.fixes.push('Added cover image to manifest');
+                }
+            }
+            
+            // For EPUB 2.0, keep original cover metadata pointing to image for general e-reader compatibility
+            // The titlepage.xhtml will be added separately for reMarkable compatibility
+            // Don't change the cover metadata - other e-readers need it to point to the image
+            
+            // Fix spine
+            const spine = opfDoc.querySelector('spine');
+            const spineItems = Array.from(spine.querySelectorAll('itemref'));
+            
+            // Remove endpapers from spine
+            spineItems.forEach(ref => {
+                const id = ref.getAttribute('idref');
+                if (id && id.toLowerCase().includes('endpaper')) {
+                    ref.remove();
+                    this.fixes.push(`Removed ${id} from spine`);
+                }
+            });
+            
+            // Handle spine differently for EPUB 2.0 vs 3.0
+            if (epubVersion === '2.0') {
+                // For EPUB 2.0, ensure titlepage is first in spine (like working Atmosphere book)
+                // This is needed for reMarkable to display the cover properly
+                let titlePageRef = spine.querySelector('itemref[idref="titlepage"]');
+                if (!titlePageRef) {
+                    titlePageRef = opfDoc.createElement('itemref');
+                    titlePageRef.setAttribute('idref', 'titlepage');
+                    spine.insertBefore(titlePageRef, spine.firstChild);
+                    this.fixes.push('Added titlepage to spine as first item (EPUB 2.0)');
+                } else if (spine.firstChild !== titlePageRef) {
+                    spine.insertBefore(titlePageRef, spine.firstChild);
+                    this.fixes.push('Moved titlepage to first position in spine (EPUB 2.0)');
+                }
+            } else {
+                // For EPUB 3.0+, ensure cover is first with linear="no"
+                let coverRef = spine.querySelector('itemref[idref="cover"]');
+                if (!coverRef) {
+                    coverRef = opfDoc.createElement('itemref');
+                    coverRef.setAttribute('idref', 'cover');
+                    coverRef.setAttribute('linear', 'no');
+                    spine.insertBefore(coverRef, spine.firstChild);
+                    this.fixes.push('Added cover to spine with linear="no"');
+                } else {
+                    coverRef.setAttribute('linear', 'no');
+                    if (spine.firstChild !== coverRef) {
+                        spine.insertBefore(coverRef, spine.firstChild);
+                    }
+                    this.fixes.push('Ensured cover is first in spine with linear="no"');
+                }
+            }
+            
+            // Handle other cover-like items in spine based on EPUB version
+            const remainingSpineItems = Array.from(spine.querySelectorAll('itemref'));
+            const coverTerms = ['cover', 'cubierta', 'couverture', 'copertina', 'capa', 'omslag'];
+            
+            remainingSpineItems.forEach(ref => {
+                const id = ref.getAttribute('idref');
+                if (id && id !== 'cover' && id !== 'titlepage') {
+                    const item = opfDoc.querySelector(`item[id="${id}"]`);
+                    if (item) {
+                        const href = item.getAttribute('href') || '';
+                        const itemId = item.getAttribute('id') || '';
+                        
+                        if (coverTerms.some(term => 
+                            href.toLowerCase().includes(term) || 
+                            itemId.toLowerCase().includes(term)
+                        )) {
+                            if (epubVersion === '2.0') {
+                                // For EPUB 2.0, remove other cover items from spine entirely
+                                // Only titlepage should be in spine for cover functionality
+                                ref.remove();
+                                this.fixes.push(`Removed ${id} from spine (EPUB 2.0 - only titlepage should be in spine)`);
+                            } else {
+                                // For EPUB 3.0+, apply linear="no"
+                                if (ref.getAttribute('linear') !== 'no') {
+                                    ref.setAttribute('linear', 'no');
+                                    this.fixes.push(`Added linear="no" to ${id}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // For EPUB 2.0, don't add linear="no" - it's not needed and can cause issues
+            if (epubVersion === '2.0') {
+                console.log('EPUB 2.0 detected - skipping linear="no" modifications');
+                // Instead, ensure proper cover structure exists at root level
+            } else {
+                // EPUB 3.0+ - apply linear="no" as before for covers
+                const firstSpineItem = spine.querySelector('itemref');
+                if (firstSpineItem && firstSpineItem.getAttribute('linear') !== 'no') {
+                    const coverMeta = opfDoc.querySelector('meta[name="cover"]');
+                    if (coverMeta) {
+                        firstSpineItem.setAttribute('linear', 'no');
+                        const firstId = firstSpineItem.getAttribute('idref');
+                        this.fixes.push(`Added linear="no" to first spine item ${firstId} (likely cover)`);
+                    }
+                }
+            }
+            
+            // Fix guide references for EPUB 2.0
+            if (epubVersion === '2.0') {
+                let guide = opfDoc.querySelector('guide');
+                if (!guide) {
+                    guide = opfDoc.createElement('guide');
+                    opfDoc.documentElement.appendChild(guide);
+                    this.fixes.push('Added guide section');
+                }
+                
+                // Update or add cover reference to point to root-level titlepage
+                let coverRef = guide.querySelector('reference[type="cover"]');
+                if (!coverRef) {
+                    coverRef = opfDoc.createElement('reference');
+                    coverRef.setAttribute('type', 'cover');
+                    guide.appendChild(coverRef);
+                }
+                
+                coverRef.setAttribute('href', 'titlepage.xhtml');
+                coverRef.setAttribute('title', 'Cover');
+                this.fixes.push('Updated guide reference to point to root-level titlepage');
+            }
+            
+            // Serialize and save
+            const serializer = new XMLSerializer();
+            const fixedOPF = serializer.serializeToString(opfDoc);
+            
+            const newOPFPath = this.opfPath.replace('OEBPS/', 'EPUB/');
+            this.fixedZip.file(newOPFPath, fixedOPF);
+        }
+
+        async fixContainer() {
+            const containerXml = await this.getFileContent('META-INF/container.xml');
+            let fixedContainer = containerXml;
+            
+            // Update to EPUB directory if needed
+            if (containerXml.includes('OEBPS/')) {
+                fixedContainer = containerXml.replace(/OEBPS\//g, 'EPUB/');
+                this.fixes.push('Updated container.xml to reference EPUB directory');
+            }
+            
+            // Update OPF filename if needed
+            const parser = new DOMParser();
+            const containerDoc = parser.parseFromString(fixedContainer, 'text/xml');
+            const rootfile = containerDoc.querySelector('rootfile');
+            if (rootfile) {
+                const fullPath = rootfile.getAttribute('full-path');
+                if (fullPath && !fullPath.includes('package.opf')) {
+                    // Keep original OPF name but ensure it's in EPUB directory
+                    const opfName = fullPath.split('/').pop();
+                    rootfile.setAttribute('full-path', `EPUB/${opfName}`);
+                }
+                
+                const serializer = new XMLSerializer();
+                fixedContainer = serializer.serializeToString(containerDoc);
+            }
+            
+            this.fixedZip.file('META-INF/container.xml', fixedContainer);
+        }
+
+        displayFixes() {
+            if (this.fixes.length === 0) {
+                this.showInfo('No fixes were needed.');
+                return;
+            }
+            
+            let message = `<strong>✅ Applied ${this.fixes.length} fix(es):</strong><ul class="issue-list">`;
+            this.fixes.forEach(fix => {
+                message += `<li class="fixed">✓ ${fix}</li>`;
+            });
+            message += '</ul><p>Your EPUB is now ready for reMarkable!</p>';
+            
+            this.showSuccess(message);
+        }
+
+        async downloadFixed() {
+            if (!this.fixedZip) return;
+            
+            const blob = await this.fixedZip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 9 }
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = this.filename.replace('.epub', '_fixed.epub');
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        reset() {
+            this.zip = null;
+            this.fixedZip = null;
+            this.issues = [];
+            this.fixes = [];
+            this.filename = '';
+            
+            document.getElementById('fileInput').value = '';
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('downloadButton').disabled = true;
+            
+            this.hideAllStatus();
+            this.showInfo('Ready to process another EPUB file.');
+        }
+
+        // Helper methods
+        async getFileContent(path) {
+            const file = this.zip.file(path);
+            if (!file) return null;
+            return await file.async('string');
+        }
+
+        resolvePathFromOPF(href) {
+            if (href.startsWith('/')) return href.substring(1);
+            return this.opfDir + '/' + href;
+        }
+
+        showInfo(message) {
+            this.hideAllStatus();
+            const elem = document.getElementById('statusInfo');
+            elem.innerHTML = message;
+            elem.style.display = 'block';
+        }
+
+        showWarning(message) {
+            this.hideAllStatus();
+            const elem = document.getElementById('statusWarning');
+            elem.innerHTML = message;
+            elem.style.display = 'block';
+        }
+
+        showError(message) {
+            this.hideAllStatus();
+            const elem = document.getElementById('statusError');
+            elem.innerHTML = message;
+            elem.style.display = 'block';
+        }
+
+        showSuccess(message) {
+            this.hideAllStatus();
+            const elem = document.getElementById('statusSuccess');
+            elem.innerHTML = message;
+            elem.style.display = 'block';
+        }
+
+        hideAllStatus() {
+            document.querySelectorAll('.status').forEach(elem => {
+                elem.style.display = 'none';
+            });
+        }
+    }
+
+    // Initialize the app when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        new EPUBCoverFixer();
+    });
+    </script>
+</body>
+</html>
