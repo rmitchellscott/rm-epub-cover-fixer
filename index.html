@@ -4,229 +4,286 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EPUB Cover Fixer for reMarkable</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        destructive: {
+                            DEFAULT: "hsl(var(--destructive))",
+                            foreground: "hsl(var(--destructive-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                        card: {
+                            DEFAULT: "hsl(var(--card))",
+                            foreground: "hsl(var(--card-foreground))",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                }
+            },
+        }
+    </script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #f5f5f5;
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 222.2 84% 4.9%;
+            --card: 0 0% 100%;
+            --card-foreground: 222.2 84% 4.9%;
+            --primary: 222.2 84% 4.9%;
+            --primary-foreground: 210 40% 98%;
+            --secondary: 210 40% 96%;
+            --secondary-foreground: 222.2 84% 4.9%;
+            --muted: 210 40% 96%;
+            --muted-foreground: 215.4 16.3% 46.9%;
+            --accent: 210 40% 96%;
+            --accent-foreground: 222.2 84% 4.9%;
+            --destructive: 0 84.2% 60.2%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 214.3 31.8% 91.4%;
+            --input: 214.3 31.8% 91.4%;
+            --ring: 222.2 84% 4.9%;
+            --radius: 0.5rem;
         }
-        .container {
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        
+        .dark {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --primary: 210 40% 98%;
+            --primary-foreground: 222.2 84% 4.9%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 212.7 26.8% 83.9%;
         }
-        h1 {
-            color: #333;
-            border-bottom: 2px solid #007AFF;
-            padding-bottom: 10px;
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
-        .upload-area {
-            border: 2px dashed #007AFF;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            margin: 20px 0;
-            background: #f8f9fa;
-            cursor: pointer;
-            transition: all 0.3s;
+        .animate-spin {
+            animation: spin 1s linear infinite;
         }
-        .upload-area:hover {
-            background: #e8f4ff;
-            border-color: #0051D5;
-        }
-        .upload-area.dragging {
-            background: #e8f4ff;
-            border-color: #0051D5;
-        }
+        
         input[type="file"] {
             display: none;
-        }
-        button {
-            background: #007AFF;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px 5px;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background: #0051D5;
-        }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .status {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 6px;
-            display: none;
-        }
-        .status.info {
-            background: #e8f4ff;
-            border: 1px solid #007AFF;
-            color: #004085;
-        }
-        .status.success {
-            background: #d4edda;
-            border: 1px solid #28a745;
-            color: #155724;
-        }
-        .status.error {
-            background: #f8d7da;
-            border: 1px solid #dc3545;
-            color: #721c24;
-        }
-        .status.warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            color: #856404;
-        }
-        .issue-list {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-        .issue-list li {
-            margin: 5px 0;
-        }
-        .fixed {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .not-fixed {
-            color: #dc3545;
-        }
-        pre {
-            background: #f4f4f4;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-size: 12px;
-        }
-        .controls {
-            margin-top: 20px;
-            display: none;
-        }
-        .progress {
-            margin: 15px 0;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
-<body>
-    <div class="container">
-        <h1>📚 EPUB Cover Fixer for reMarkable</h1>
-        
-        <p>This tool automatically detects and fixes common EPUB cover display issues on reMarkable devices.</p>
-        
-        <div class="upload-area" id="uploadArea">
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            <p><strong>Drop EPUB file here or click to browse</strong></p>
-            <p style="color: #666; font-size: 14px;">Supports .epub files only</p>
+<body class="min-h-screen bg-background font-sans antialiased">
+    <div class="container mx-auto max-w-4xl p-6 space-y-8">
+        <!-- Main Card Container -->
+        <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-8">
+        <div class="space-y-2">
+            <h1 class="text-3xl font-bold tracking-tight text-foreground">EPUB Cover Fixer for reMarkable</h1>
+            <p class="text-muted-foreground">Automatically detect and fix common EPUB cover display issues on reMarkable devices. Now supports multiple files!</p>
         </div>
         
-        <input type="file" id="fileInput" accept=".epub">
+        <!-- Upload Area -->
+        <div class="rounded-lg border-2 border-dashed border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer" id="uploadArea">
+            <div class="p-12 text-center space-y-4">
+                <div class="mx-auto w-12 h-12 text-muted-foreground">
+                    <svg class="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-lg font-medium">Drop EPUB files here or click to browse</p>
+                    <p class="text-sm text-muted-foreground">Supports multiple .epub files • Drag & drop or click to select</p>
+                </div>
+                <button type="button" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                    Select Files
+                </button>
+            </div>
+        </div>
         
-        <div class="status info" id="statusInfo"></div>
-        <div class="status warning" id="statusWarning"></div>
-        <div class="status error" id="statusError"></div>
-        <div class="status success" id="statusSuccess"></div>
+        <input type="file" id="fileInput" accept=".epub" multiple>
         
-        <div class="controls" id="controls">
-            <button id="fixButton">🔧 Apply Fixes</button>
-            <button id="downloadButton" disabled>⬇️ Download Fixed EPUB</button>
-            <button id="resetButton">🔄 Upload Another File</button>
+        <!-- Global Status Messages -->
+        <div id="globalStatus" class="space-y-4" style="display: none;"></div>
+        
+        <!-- File List -->
+        <div id="fileListContainer" style="display: none;">
+            <div class="rounded-lg border bg-card">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">Selected Files</h2>
+                        <div class="flex items-center gap-2" id="batchButtonsContainer">
+                            <button id="analyzeAllBtn" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3">
+                                Analyze All
+                            </button>
+                            <button id="fixAllBtn" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3" disabled>
+                                Fix All
+                            </button>
+                            <button id="downloadAllBtn" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3" disabled>
+                                Download All
+                            </button>
+                            <button id="clearAllBtn" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-3">
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+                    <div id="fileList" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
         </div>
     </div>
 
     <script>
     class EPUBCoverFixer {
         constructor() {
-            this.zip = null;
-            this.issues = [];
-            this.fixes = [];
-            this.fixedZip = null;
-            this.filename = '';
-            this.opfPath = '';
-            this.opfDir = '';
-            this.coverImagePath = '';
+            this.files = new Map(); // Map of filename -> file data
             this.setupEventListeners();
         }
 
         setupEventListeners() {
             const uploadArea = document.getElementById('uploadArea');
             const fileInput = document.getElementById('fileInput');
-            const fixButton = document.getElementById('fixButton');
-            const downloadButton = document.getElementById('downloadButton');
-            const resetButton = document.getElementById('resetButton');
+            const analyzeAllBtn = document.getElementById('analyzeAllBtn');
+            const fixAllBtn = document.getElementById('fixAllBtn');
+            const downloadAllBtn = document.getElementById('downloadAllBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
 
             uploadArea.addEventListener('click', () => fileInput.click());
             
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                uploadArea.classList.add('dragging');
+                uploadArea.classList.add('border-primary', 'bg-primary/5');
             });
             
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragging');
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('border-primary', 'bg-primary/5');
             });
             
             uploadArea.addEventListener('drop', (e) => {
                 e.preventDefault();
-                uploadArea.classList.remove('dragging');
+                uploadArea.classList.remove('border-primary', 'bg-primary/5');
                 if (e.dataTransfer.files.length > 0) {
-                    this.handleFile(e.dataTransfer.files[0]);
+                    this.handleFiles(Array.from(e.dataTransfer.files));
                 }
             });
             
             fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) {
-                    this.handleFile(e.target.files[0]);
+                    this.handleFiles(Array.from(e.target.files));
                 }
             });
             
-            fixButton.addEventListener('click', () => this.applyFixes());
-            downloadButton.addEventListener('click', () => this.downloadFixed());
-            resetButton.addEventListener('click', () => this.reset());
+            analyzeAllBtn.addEventListener('click', () => this.analyzeAllFiles());
+            fixAllBtn.addEventListener('click', () => this.fixAllFiles());
+            downloadAllBtn.addEventListener('click', () => this.downloadAllFiles());
+            clearAllBtn.addEventListener('click', () => this.clearAllFiles());
         }
 
-        async handleFile(file) {
-            if (!file.name.toLowerCase().endsWith('.epub')) {
-                this.showError('Please select a valid EPUB file');
+        async handleFiles(fileList) {
+            const epubFiles = fileList.filter(file => file.name.toLowerCase().endsWith('.epub'));
+            
+            if (epubFiles.length === 0) {
+                this.showGlobalError('Please select valid EPUB files');
                 return;
             }
             
-            this.filename = file.name;
-            this.showInfo('Loading EPUB file...');
+            if (epubFiles.length !== fileList.length) {
+                this.showGlobalWarning(`${fileList.length - epubFiles.length} non-EPUB file(s) ignored`);
+            }
+            
+            for (const file of epubFiles) {
+                await this.addFile(file);
+            }
+            
+            this.updateUI();
+        }
+        
+        async addFile(file) {
+            const fileData = {
+                file: file,
+                filename: file.name,
+                status: 'pending', // pending, analyzing, analyzed, fixing, fixed, error
+                zip: null,
+                issues: [],
+                fixes: [],
+                fixedZip: null,
+                opfPath: '',
+                opfDir: '',
+                coverImagePath: '',
+                error: null
+            };
+            
+            this.files.set(file.name, fileData);
             
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                this.zip = await JSZip.loadAsync(arrayBuffer);
-                await this.analyzeEPUB();
+                fileData.zip = await JSZip.loadAsync(arrayBuffer);
             } catch (error) {
-                this.showError('Failed to load EPUB: ' + error.message);
+                fileData.status = 'error';
+                fileData.error = 'Failed to load EPUB: ' + error.message;
             }
         }
 
-        async analyzeEPUB() {
-            this.issues = [];
-            this.showInfo('Analyzing EPUB structure...');
+        async analyzeFile(filename) {
+            const fileData = this.files.get(filename);
+            if (!fileData || !fileData.zip) return;
+            
+            fileData.status = 'analyzing';
+            this.updateFileItem(filename);
+            
+            try {
+                await this.analyzeEPUB(fileData);
+                fileData.status = 'analyzed';
+            } catch (error) {
+                fileData.status = 'error';
+                fileData.error = 'Analysis failed: ' + error.message;
+            }
+            
+            this.updateFileItem(filename);
+            this.updateBatchButtons();
+        }
+        
+        async analyzeEPUB(fileData) {
+            fileData.issues = [];
             
             // Find container.xml
-            const containerXml = await this.getFileContent('META-INF/container.xml');
+            const containerXml = await this.getFileContent(fileData, 'META-INF/container.xml');
             if (!containerXml) {
-                this.showError('Invalid EPUB: No container.xml found');
-                return;
+                throw new Error('Invalid EPUB: No container.xml found');
             }
             
             // Parse container to find OPF
@@ -234,16 +291,15 @@
             const containerDoc = parser.parseFromString(containerXml, 'text/xml');
             const rootfile = containerDoc.querySelector('rootfile');
             if (!rootfile) {
-                this.showError('Invalid EPUB: No rootfile in container.xml');
-                return;
+                throw new Error('Invalid EPUB: No rootfile in container.xml');
             }
             
-            this.opfPath = rootfile.getAttribute('full-path');
-            this.opfDir = this.opfPath.substring(0, this.opfPath.lastIndexOf('/'));
+            fileData.opfPath = rootfile.getAttribute('full-path');
+            fileData.opfDir = fileData.opfPath.substring(0, fileData.opfPath.lastIndexOf('/'));
             
             // Check if using OEBPS instead of EPUB
-            if (this.opfDir.includes('OEBPS')) {
-                this.issues.push({
+            if (fileData.opfDir.includes('OEBPS')) {
+                fileData.issues.push({
                     type: 'directory',
                     description: 'Uses OEBPS directory instead of EPUB',
                     severity: 'medium'
@@ -251,10 +307,9 @@
             }
             
             // Analyze OPF
-            const opfContent = await this.getFileContent(this.opfPath);
+            const opfContent = await this.getFileContent(fileData, fileData.opfPath);
             if (!opfContent) {
-                this.showError('Invalid EPUB: Cannot read OPF file');
-                return;
+                throw new Error('Invalid EPUB: Cannot read OPF file');
             }
             
             const opfDoc = parser.parseFromString(opfContent, 'text/xml');
@@ -264,7 +319,7 @@
             const coverItem = opfDoc.querySelector('item[properties*="cover-image"]');
             
             if (!coverMeta && !coverItem) {
-                this.issues.push({
+                fileData.issues.push({
                     type: 'metadata',
                     description: 'No cover image properly identified in metadata',
                     severity: 'high'
@@ -274,7 +329,7 @@
                 const coverId = coverMeta.getAttribute('content');
                 const imageItem = opfDoc.querySelector(`item[id="${coverId}"]`);
                 if (imageItem && !imageItem.getAttribute('properties')) {
-                    this.issues.push({
+                    fileData.issues.push({
                         type: 'metadata',
                         description: 'Cover image missing properties="cover-image" attribute',
                         severity: 'medium'
@@ -349,7 +404,7 @@
                 const linearAttr = coverInSpine.getAttribute('linear');
                 const refId = coverInSpine.getAttribute('idref');
                 if (linearAttr !== 'no') {
-                    this.issues.push({
+                    fileData.issues.push({
                         type: 'spine',
                         description: `Cover in spine (id: ${refId}) missing linear="no" attribute`,
                         severity: 'high'
@@ -367,9 +422,9 @@
             }
             
             if (coverImageItem) {
-                this.coverImagePath = coverImageItem.getAttribute('href');
-                if (!this.coverImagePath.includes('covers/')) {
-                    this.issues.push({
+                fileData.coverImagePath = coverImageItem.getAttribute('href');
+                if (!fileData.coverImagePath.includes('covers/')) {
+                    fileData.issues.push({
                         type: 'structure',
                         description: 'Cover image not in covers/ subdirectory',
                         severity: 'low'
@@ -377,8 +432,8 @@
                 }
                 
                 // Check file extension
-                if (this.coverImagePath.endsWith('.jpeg')) {
-                    this.issues.push({
+                if (fileData.coverImagePath.endsWith('.jpeg')) {
+                    fileData.issues.push({
                         type: 'format',
                         description: 'Cover uses .jpeg extension instead of .jpg',
                         severity: 'low'
@@ -389,15 +444,15 @@
             // Check for cover HTML structure
             const coverHtmlItem = opfDoc.querySelector('item[id*="cover"]:not([media-type*="image"])');
             if (coverHtmlItem) {
-                const coverHtmlPath = this.resolvePathFromOPF(coverHtmlItem.getAttribute('href'));
-                const coverHtml = await this.getFileContent(coverHtmlPath);
+                const coverHtmlPath = this.resolvePathFromOPF(fileData, coverHtmlItem.getAttribute('href'));
+                const coverHtml = await this.getFileContent(fileData, coverHtmlPath);
                 if (coverHtml) {
                     const coverDoc = parser.parseFromString(coverHtml, 'text/html');
                     const hasFigure = coverDoc.querySelector('figure');
                     const hasComplexDiv = coverDoc.querySelector('div[class*="height"]');
                     
                     if (!hasFigure && hasComplexDiv) {
-                        this.issues.push({
+                        fileData.issues.push({
                             type: 'html',
                             description: 'Cover HTML uses complex div structure instead of simple figure/img',
                             severity: 'medium'
@@ -405,119 +460,13 @@
                     }
                 }
             }
-            
-            this.displayIssues();
         }
 
-        displayIssues() {
-            if (this.issues.length === 0) {
-                this.showSuccess('✅ No cover issues detected! Your EPUB should work fine on reMarkable.');
-                document.getElementById('controls').style.display = 'block';
-                return;
-            }
-            
-            const highSeverity = this.issues.filter(i => i.severity === 'high').length;
-            const mediumSeverity = this.issues.filter(i => i.severity === 'medium').length;
-            const lowSeverity = this.issues.filter(i => i.severity === 'low').length;
-            
-            let message = `<strong>📋 Analysis Complete</strong><br><br>`;
-            message += `<strong>Found ${this.issues.length} potential issue(s):</strong><ul class="issue-list">`;
-            
-            this.issues.forEach(issue => {
-                const icon = issue.severity === 'high' ? '🔴' : 
-                            issue.severity === 'medium' ? '🟡' : '🟢';
-                message += `<li>${icon} ${issue.description}</li>`;
-            });
-            
-            message += '</ul>';
-            
-            if (highSeverity > 0) {
-                message += '<p style="background: #ffe5e5; padding: 10px; border-radius: 4px; margin-top: 10px;">';
-                message += '<strong>⚠️ High severity issues detected</strong><br>';
-                message += 'These issues likely cause cover display problems on reMarkable devices.';
-                message += '</p>';
-            }
-            
-            this.showWarning(message);
-            document.getElementById('controls').style.display = 'block';
-        }
 
-        async applyFixes() {
-            this.showInfo('Applying fixes...');
-            this.fixes = [];
-            
-            try {
-                // Create a new zip for the fixed version
-                this.fixedZip = new JSZip();
-                
-                // First pass: copy all files except what we'll modify
-                for (let [path, file] of Object.entries(this.zip.files)) {
-                    if (!file.dir) {
-                        // Skip files we'll handle specially
-                        if (path === this.opfPath || path.includes('container.xml')) {
-                            continue;
-                        }
-                        
-                        const content = await file.async('uint8array');
-                        
-                        // Rename OEBPS to EPUB if needed
-                        let newPath = path;
-                        if (path.includes('OEBPS/')) {
-                            newPath = path.replace('OEBPS/', 'EPUB/');
-                            if (!this.fixes.includes('Changed OEBPS directory to EPUB')) {
-                                this.fixes.push('Changed OEBPS directory to EPUB');
-                            }
-                        }
-                        
-                        // Handle cover image placement based on EPUB version
-                        if (this.coverImagePath && path.includes(this.coverImagePath)) {
-                            const filename = path.split('/').pop();
-                            
-                            // Get EPUB version to determine placement
-                            const opfContent = await this.getFileContent(this.opfPath);
-                            const parser = new DOMParser();
-                            const opfDoc = parser.parseFromString(opfContent, 'text/xml');
-                            const epubVersion = opfDoc.documentElement.getAttribute('version');
-                            
-                            if (epubVersion === '2.0') {
-                                // For EPUB 2.0, place cover image at root level as cover.jpeg
-                                const epubDir = this.opfDir.includes('OEBPS') ? 'EPUB' : this.opfDir;
-                                newPath = `${epubDir}/cover.jpeg`;
-                                this.fixes.push('Moved cover image to root level as cover.jpeg for EPUB 2.0');
-                            } else {
-                                // For EPUB 3.0+, use covers/ subdirectory
-                                if (!path.includes('/covers/')) {
-                                    newPath = newPath.replace(/\/images\//, '/covers/');
-                                    newPath = newPath.replace(filename, 'cover.jpg');
-                                    this.fixes.push('Moved cover image to covers/cover.jpg');
-                                }
-                            }
-                        }
-                        
-                        this.fixedZip.file(newPath, content);
-                    }
-                }
-                
-                // Create separate cover.xhtml at EPUB root
-                await this.createSeparateCover();
-                
-                // Fix OPF file
-                await this.fixOPF();
-                
-                // Update container.xml
-                await this.fixContainer();
-                
-                this.displayFixes();
-                document.getElementById('downloadButton').disabled = false;
-                
-            } catch (error) {
-                this.showError('Failed to apply fixes: ' + error.message);
-            }
-        }
 
-        async createSeparateCover() {
+        async createSeparateCover(fileData) {
             // Get EPUB version to determine approach
-            const opfContent = await this.getFileContent(this.opfPath);
+            const opfContent = await this.getFileContent(fileData, fileData.opfPath);
             const parser = new DOMParser();
             const opfDoc = parser.parseFromString(opfContent, 'text/xml');
             const epubVersion = opfDoc.documentElement.getAttribute('version');
@@ -570,13 +519,13 @@
                 fileName = 'cover.xhtml';
             }
             
-            const epubDir = this.opfDir.includes('OEBPS') ? 'EPUB' : this.opfDir;
-            this.fixedZip.file(`${epubDir}/${fileName}`, coverHTML);
-            this.fixes.push(`Created ${fileName} at ${epubDir} root for EPUB ${epubVersion}`);
+            const epubDir = fileData.opfDir.includes('OEBPS') ? 'EPUB' : fileData.opfDir;
+            fileData.fixedZip.file(`${epubDir}/${fileName}`, coverHTML);
+            fileData.fixes.push(`Created ${fileName} at ${epubDir} root for EPUB ${epubVersion}`);
         }
         
-        async fixOPF() {
-            const opfContent = await this.getFileContent(this.opfPath);
+        async fixOPF(fileData) {
+            const opfContent = await this.getFileContent(fileData, fileData.opfPath);
             const parser = new DOMParser();
             const opfDoc = parser.parseFromString(opfContent, 'text/xml');
             const epubVersion = opfDoc.documentElement.getAttribute('version');
@@ -594,7 +543,7 @@
                 coverItem.setAttribute('href', coverFileName);
                 coverItem.setAttribute('media-type', 'application/xhtml+xml');
                 manifest.insertBefore(coverItem, manifest.firstChild);
-                this.fixes.push(`Added ${coverFileName} to manifest`);
+                fileData.fixes.push(`Added ${coverFileName} to manifest`);
             }
             
             // Update cover image reference
@@ -611,11 +560,11 @@
                 // Update existing cover image item based on EPUB version
                 if (epubVersion === '2.0') {
                     coverImageItem.setAttribute('href', 'cover.jpeg');
-                    this.fixes.push('Updated cover image path for EPUB 2.0');
+                    fileData.fixes.push('Updated cover image path for EPUB 2.0');
                 } else {
                     coverImageItem.setAttribute('href', 'covers/cover.jpg');
                     coverImageItem.setAttribute('properties', 'cover-image');
-                    this.fixes.push('Updated cover image path to covers/cover.jpg');
+                    fileData.fixes.push('Updated cover image path to covers/cover.jpg');
                 }
             } else {
                 // Check if we need to create/update cover image item
@@ -629,11 +578,11 @@
                         if (epubVersion === '2.0') {
                             // For EPUB 2.0, place cover image at root level and use .jpeg extension
                             coverImageItem.setAttribute('href', 'cover.jpeg');
-                            this.fixes.push('Updated cover image path for EPUB 2.0');
+                            fileData.fixes.push('Updated cover image path for EPUB 2.0');
                         } else {
                             coverImageItem.setAttribute('href', 'covers/cover.jpg');
                             coverImageItem.setAttribute('properties', 'cover-image');
-                            this.fixes.push('Updated cover image path to covers/cover.jpg');
+                            fileData.fixes.push('Updated cover image path to covers/cover.jpg');
                         }
                     }
                 } else {
@@ -648,7 +597,7 @@
                     }
                     newCoverItem.setAttribute('media-type', 'image/jpeg');
                     manifest.appendChild(newCoverItem);
-                    this.fixes.push('Added cover image to manifest');
+                    fileData.fixes.push('Added cover image to manifest');
                 }
             }
             
@@ -665,7 +614,7 @@
                 const id = ref.getAttribute('idref');
                 if (id && id.toLowerCase().includes('endpaper')) {
                     ref.remove();
-                    this.fixes.push(`Removed ${id} from spine`);
+                    fileData.fixes.push(`Removed ${id} from spine`);
                 }
             });
             
@@ -678,10 +627,10 @@
                     titlePageRef = opfDoc.createElement('itemref');
                     titlePageRef.setAttribute('idref', 'titlepage');
                     spine.insertBefore(titlePageRef, spine.firstChild);
-                    this.fixes.push('Added titlepage to spine as first item (EPUB 2.0)');
+                    fileData.fixes.push('Added titlepage to spine as first item (EPUB 2.0)');
                 } else if (spine.firstChild !== titlePageRef) {
                     spine.insertBefore(titlePageRef, spine.firstChild);
-                    this.fixes.push('Moved titlepage to first position in spine (EPUB 2.0)');
+                    fileData.fixes.push('Moved titlepage to first position in spine (EPUB 2.0)');
                 }
             } else {
                 // For EPUB 3.0+, ensure cover is first with linear="no"
@@ -691,13 +640,13 @@
                     coverRef.setAttribute('idref', 'cover');
                     coverRef.setAttribute('linear', 'no');
                     spine.insertBefore(coverRef, spine.firstChild);
-                    this.fixes.push('Added cover to spine with linear="no"');
+                    fileData.fixes.push('Added cover to spine with linear="no"');
                 } else {
                     coverRef.setAttribute('linear', 'no');
                     if (spine.firstChild !== coverRef) {
                         spine.insertBefore(coverRef, spine.firstChild);
                     }
-                    this.fixes.push('Ensured cover is first in spine with linear="no"');
+                    fileData.fixes.push('Ensured cover is first in spine with linear="no"');
                 }
             }
             
@@ -721,12 +670,12 @@
                                 // For EPUB 2.0, remove other cover items from spine entirely
                                 // Only titlepage should be in spine for cover functionality
                                 ref.remove();
-                                this.fixes.push(`Removed ${id} from spine (EPUB 2.0 - only titlepage should be in spine)`);
+                                fileData.fixes.push(`Removed ${id} from spine (EPUB 2.0 - only titlepage should be in spine)`);
                             } else {
                                 // For EPUB 3.0+, apply linear="no"
                                 if (ref.getAttribute('linear') !== 'no') {
                                     ref.setAttribute('linear', 'no');
-                                    this.fixes.push(`Added linear="no" to ${id}`);
+                                    fileData.fixes.push(`Added linear="no" to ${id}`);
                                 }
                             }
                         }
@@ -746,7 +695,7 @@
                     if (coverMeta) {
                         firstSpineItem.setAttribute('linear', 'no');
                         const firstId = firstSpineItem.getAttribute('idref');
-                        this.fixes.push(`Added linear="no" to first spine item ${firstId} (likely cover)`);
+                        fileData.fixes.push(`Added linear="no" to first spine item ${firstId} (likely cover)`);
                     }
                 }
             }
@@ -757,7 +706,7 @@
                 if (!guide) {
                     guide = opfDoc.createElement('guide');
                     opfDoc.documentElement.appendChild(guide);
-                    this.fixes.push('Added guide section');
+                    fileData.fixes.push('Added guide section');
                 }
                 
                 // Update or add cover reference to point to root-level titlepage
@@ -770,25 +719,25 @@
                 
                 coverRef.setAttribute('href', 'titlepage.xhtml');
                 coverRef.setAttribute('title', 'Cover');
-                this.fixes.push('Updated guide reference to point to root-level titlepage');
+                fileData.fixes.push('Updated guide reference to point to root-level titlepage');
             }
             
             // Serialize and save
             const serializer = new XMLSerializer();
             const fixedOPF = serializer.serializeToString(opfDoc);
             
-            const newOPFPath = this.opfPath.replace('OEBPS/', 'EPUB/');
-            this.fixedZip.file(newOPFPath, fixedOPF);
+            const newOPFPath = fileData.opfPath.replace('OEBPS/', 'EPUB/');
+            fileData.fixedZip.file(newOPFPath, fixedOPF);
         }
 
-        async fixContainer() {
-            const containerXml = await this.getFileContent('META-INF/container.xml');
+        async fixContainer(fileData) {
+            const containerXml = await this.getFileContent(fileData, 'META-INF/container.xml');
             let fixedContainer = containerXml;
             
             // Update to EPUB directory if needed
             if (containerXml.includes('OEBPS/')) {
                 fixedContainer = containerXml.replace(/OEBPS\//g, 'EPUB/');
-                this.fixes.push('Updated container.xml to reference EPUB directory');
+                fileData.fixes.push('Updated container.xml to reference EPUB directory');
             }
             
             // Update OPF filename if needed
@@ -807,66 +756,21 @@
                 fixedContainer = serializer.serializeToString(containerDoc);
             }
             
-            this.fixedZip.file('META-INF/container.xml', fixedContainer);
+            fileData.fixedZip.file('META-INF/container.xml', fixedContainer);
         }
 
-        displayFixes() {
-            if (this.fixes.length === 0) {
-                this.showInfo('No fixes were needed.');
-                return;
-            }
-            
-            let message = `<strong>✅ Applied ${this.fixes.length} fix(es):</strong><ul class="issue-list">`;
-            this.fixes.forEach(fix => {
-                message += `<li class="fixed">✓ ${fix}</li>`;
-            });
-            message += '</ul><p>Your EPUB is now ready for reMarkable!</p>';
-            
-            this.showSuccess(message);
-        }
 
-        async downloadFixed() {
-            if (!this.fixedZip) return;
-            
-            const blob = await this.fixedZip.generateAsync({
-                type: 'blob',
-                compression: 'DEFLATE',
-                compressionOptions: { level: 9 }
-            });
-            
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = this.filename.replace('.epub', '_fixed.epub');
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        reset() {
-            this.zip = null;
-            this.fixedZip = null;
-            this.issues = [];
-            this.fixes = [];
-            this.filename = '';
-            
-            document.getElementById('fileInput').value = '';
-            document.getElementById('controls').style.display = 'none';
-            document.getElementById('downloadButton').disabled = true;
-            
-            this.hideAllStatus();
-            this.showInfo('Ready to process another EPUB file.');
-        }
 
         // Helper methods
-        async getFileContent(path) {
-            const file = this.zip.file(path);
+        async getFileContent(fileData, path) {
+            const file = fileData.zip.file(path);
             if (!file) return null;
             return await file.async('string');
         }
 
-        resolvePathFromOPF(href) {
+        resolvePathFromOPF(fileData, href) {
             if (href.startsWith('/')) return href.substring(1);
-            return this.opfDir + '/' + href;
+            return fileData.opfDir + '/' + href;
         }
 
         showInfo(message) {
@@ -901,6 +805,406 @@
             document.querySelectorAll('.status').forEach(elem => {
                 elem.style.display = 'none';
             });
+        }
+        
+        // New UI methods for multi-file support
+        showGlobalError(message) {
+            this.showGlobalStatus(message, 'error');
+        }
+        
+        showGlobalWarning(message) {
+            this.showGlobalStatus(message, 'warning');
+        }
+        
+        showGlobalStatus(message, type) {
+            const container = document.getElementById('globalStatus');
+            const alertClasses = {
+                info: 'bg-blue-50 border-blue-200 text-blue-800',
+                warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                error: 'bg-red-50 border-red-200 text-red-800', 
+                success: 'bg-green-50 border-green-200 text-green-800'
+            };
+            
+            container.innerHTML = `
+                <div class="rounded-lg border p-4 ${alertClasses[type]}">
+                    ${message}
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+        
+        updateUI() {
+            const container = document.getElementById('fileListContainer');
+            container.style.display = this.files.size > 0 ? 'block' : 'none';
+            this.updateFileList();
+            this.updateBatchButtons();
+        }
+        
+        updateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            for (const [filename, fileData] of this.files) {
+                const fileItem = this.createFileItem(filename, fileData);
+                fileList.appendChild(fileItem);
+            }
+        }
+        
+        createFileItem(filename, fileData) {
+            const div = document.createElement('div');
+            div.className = 'border rounded-lg p-4 bg-card transition-all hover:shadow-sm';
+            div.id = `file-${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            
+            const statusBadge = this.getStatusBadge(fileData.status);
+            const issuesInfo = this.getIssuesInfo(fileData);
+            
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="font-medium text-sm truncate" title="${filename}">${filename}</h3>
+                            ${statusBadge}
+                        </div>
+                        ${issuesInfo}
+                        ${fileData.error ? `<p class="text-sm text-destructive mt-1">${fileData.error}</p>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 ml-4">
+                        <button class="analyze-btn inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${this.getAnalyzeButtonStyle(fileData)} h-8 px-3" ${fileData.status === 'pending' ? '' : 'disabled'}>
+                            Analyze
+                        </button>
+                        <button class="fix-btn inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${this.getFixButtonStyle(fileData)} h-8 px-3" ${fileData.status === 'analyzed' ? '' : 'disabled'}>
+                            Fix
+                        </button>
+                        <button class="download-btn inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${this.getDownloadButtonStyle(fileData)} h-8 px-3" ${fileData.status === 'fixed' ? '' : 'disabled'}>
+                            Download
+                        </button>
+                        <button class="remove-btn inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-8 px-2">
+                            ×
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            div.querySelector('.analyze-btn').addEventListener('click', () => this.analyzeFile(filename));
+            div.querySelector('.fix-btn').addEventListener('click', () => this.fixFile(filename));
+            div.querySelector('.download-btn').addEventListener('click', () => this.downloadFile(filename));
+            div.querySelector('.remove-btn').addEventListener('click', () => this.removeFile(filename));
+            
+            return div;
+        }
+        
+        getStatusBadge(status) {
+            const badges = {
+                pending: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Pending</span>',
+                analyzing: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><div class="w-3 h-3 animate-spin rounded-full border border-blue-600 border-t-transparent mr-1"></div>Analyzing</span>',
+                analyzed: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Analyzed</span>',
+                fixing: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800"><div class="w-3 h-3 animate-spin rounded-full border border-orange-600 border-t-transparent mr-1"></div>Fixing</span>',
+                fixed: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Fixed</span>',
+                error: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Error</span>'
+            };
+            return badges[status] || badges.pending;
+        }
+        
+        getIssuesInfo(fileData) {
+            if (fileData.status === 'analyzed' && fileData.issues.length > 0) {
+                const highCount = fileData.issues.filter(i => i.severity === 'high').length;
+                const color = highCount > 0 ? 'text-red-600' : 'text-yellow-600';
+                
+                const issuesList = fileData.issues.map(issue => `<li class="text-xs text-muted-foreground ml-4">• ${issue.description}</li>`).join('');
+                
+                return `
+                    <details class="text-xs ${color} cursor-pointer">
+                        <summary class="hover:text-foreground select-none">${fileData.issues.length} issue${fileData.issues.length !== 1 ? 's' : ''} found</summary>
+                        <ul class="mt-1 space-y-1">
+                            ${issuesList}
+                        </ul>
+                    </details>
+                `;
+            }
+            
+            if (fileData.status === 'analyzed' && fileData.issues.length === 0) {
+                return '<p class="text-xs text-green-600">No issues found</p>';
+            }
+            
+            if (fileData.status === 'fixed' && fileData.fixes.length > 0) {
+                const fixesList = fileData.fixes.map(fix => `<li class="text-xs text-muted-foreground ml-4">• ${fix}</li>`).join('');
+                
+                return `
+                    <details class="text-xs text-green-600 cursor-pointer">
+                        <summary class="hover:text-foreground select-none">${fileData.fixes.length} fix${fileData.fixes.length !== 1 ? 'es' : ''} applied</summary>
+                        <ul class="mt-1 space-y-1">
+                            ${fixesList}
+                        </ul>
+                    </details>
+                `;
+            }
+            
+            return '';
+        }
+        
+        getAnalyzeButtonStyle(fileData) {
+            // Default style only when it's the next action
+            if (fileData.status === 'pending') {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        getFixButtonStyle(fileData) {
+            // Default style only when it's the next action
+            if (fileData.status === 'analyzed') {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        getDownloadButtonStyle(fileData) {
+            // Default style only when it's the next action
+            if (fileData.status === 'fixed') {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        // Batch button styling methods
+        getBatchAnalyzeStyle() {
+            const pendingFiles = Array.from(this.files.values()).filter(f => f.status === 'pending');
+            // Primary only if pending files exist and this is the next action in workflow priority
+            if (pendingFiles.length > 0) {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        getBatchFixStyle() {
+            const pendingFiles = Array.from(this.files.values()).filter(f => f.status === 'pending');
+            const analyzedFiles = Array.from(this.files.values()).filter(f => f.status === 'analyzed');
+            // Primary only if analyzed files exist AND no pending files (priority: analyze first)
+            if (analyzedFiles.length > 0 && pendingFiles.length === 0) {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        getBatchDownloadStyle() {
+            const pendingFiles = Array.from(this.files.values()).filter(f => f.status === 'pending');
+            const analyzedFiles = Array.from(this.files.values()).filter(f => f.status === 'analyzed');
+            const fixedFiles = Array.from(this.files.values()).filter(f => f.status === 'fixed');
+            // Primary only if fixed files exist AND no pending/analyzed files (priority: analyze → fix → download)
+            if (fixedFiles.length > 0 && pendingFiles.length === 0 && analyzedFiles.length === 0) {
+                return 'bg-primary text-primary-foreground hover:bg-primary/90';
+            }
+            // Outline style otherwise
+            return 'border border-input bg-background hover:bg-accent hover:text-accent-foreground';
+        }
+        
+        updateFileItem(filename) {
+            const fileData = this.files.get(filename);
+            if (!fileData) return;
+            
+            const existingItem = document.getElementById(`file-${filename.replace(/[^a-zA-Z0-9]/g, '_')}`);
+            if (existingItem) {
+                const newItem = this.createFileItem(filename, fileData);
+                existingItem.replaceWith(newItem);
+            }
+        }
+        
+        updateBatchButtons() {
+            const analyzeAllBtn = document.getElementById('analyzeAllBtn');
+            const fixAllBtn = document.getElementById('fixAllBtn');
+            const downloadAllBtn = document.getElementById('downloadAllBtn');
+            
+            if (!analyzeAllBtn) return; // UI not loaded yet
+            
+            const pendingFiles = Array.from(this.files.values()).filter(f => f.status === 'pending');
+            const analyzedFiles = Array.from(this.files.values()).filter(f => f.status === 'analyzed');
+            const fixedFiles = Array.from(this.files.values()).filter(f => f.status === 'fixed');
+            
+            // Update disabled states
+            analyzeAllBtn.disabled = pendingFiles.length === 0;
+            fixAllBtn.disabled = analyzedFiles.length === 0;
+            downloadAllBtn.disabled = fixedFiles.length === 0;
+            
+            // Clear existing style classes
+            const allStyleClasses = 'bg-primary text-primary-foreground hover:bg-primary/90 border border-input bg-background hover:bg-accent hover:text-accent-foreground'.split(' ');
+            
+            [analyzeAllBtn, fixAllBtn, downloadAllBtn].forEach(btn => {
+                btn.classList.remove(...allStyleClasses);
+            });
+            
+            // Apply new styling
+            analyzeAllBtn.classList.add(...this.getBatchAnalyzeStyle().split(' '));
+            fixAllBtn.classList.add(...this.getBatchFixStyle().split(' '));
+            downloadAllBtn.classList.add(...this.getBatchDownloadStyle().split(' '));
+        }
+        
+        // Batch operations
+        async analyzeAllFiles() {
+            const pendingFiles = Array.from(this.files.entries()).filter(([_, data]) => data.status === 'pending');
+            for (const [filename, _] of pendingFiles) {
+                await this.analyzeFile(filename);
+            }
+        }
+        
+        async fixAllFiles() {
+            const analyzedFiles = Array.from(this.files.entries()).filter(([_, data]) => data.status === 'analyzed');
+            for (const [filename, _] of analyzedFiles) {
+                await this.fixFile(filename);
+            }
+        }
+        
+        async downloadAllFiles() {
+            const fixedFiles = Array.from(this.files.entries()).filter(([_, data]) => data.status === 'fixed');
+            
+            if (fixedFiles.length === 1) {
+                await this.downloadFile(fixedFiles[0][0]);
+            } else if (fixedFiles.length > 1) {
+                // Create ZIP of all fixed files
+                const zip = new JSZip();
+                
+                for (const [filename, fileData] of fixedFiles) {
+                    const blob = await fileData.fixedZip.generateAsync({
+                        type: 'blob',
+                        compression: 'DEFLATE',
+                        compressionOptions: { level: 9 }
+                    });
+                    
+                    const fixedFilename = filename.replace('.epub', '_fixed.epub');
+                    zip.file(fixedFilename, blob);
+                }
+                
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+                
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'fixed_epubs.zip';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        clearAllFiles() {
+            this.files.clear();
+            document.getElementById('fileInput').value = '';
+            this.updateUI();
+            document.getElementById('globalStatus').style.display = 'none';
+        }
+        
+        removeFile(filename) {
+            this.files.delete(filename);
+            this.updateUI();
+        }
+        
+        // Real EPUB fixing implementation
+        async fixFile(filename) {
+            const fileData = this.files.get(filename);
+            if (!fileData || fileData.status !== 'analyzed') return;
+            
+            fileData.status = 'fixing';
+            fileData.fixes = [];
+            this.updateFileItem(filename);
+            
+            try {
+                await this.applyFixesToFile(fileData);
+                fileData.status = 'fixed';
+            } catch (error) {
+                fileData.status = 'error';
+                fileData.error = 'Fix failed: ' + error.message;
+            }
+            
+            this.updateFileItem(filename);
+            this.updateBatchButtons();
+        }
+        
+        async applyFixesToFile(fileData) {
+            // Create a new zip for the fixed version
+            fileData.fixedZip = new JSZip();
+            
+            // First pass: copy all files except what we'll modify
+            for (let [path, file] of Object.entries(fileData.zip.files)) {
+                if (!file.dir) {
+                    // Skip files we'll handle specially
+                    if (path === fileData.opfPath || path.includes('container.xml')) {
+                        continue;
+                    }
+                    
+                    const content = await file.async('uint8array');
+                    
+                    // Rename OEBPS to EPUB if needed
+                    let newPath = path;
+                    if (path.includes('OEBPS/')) {
+                        newPath = path.replace('OEBPS/', 'EPUB/');
+                        if (!fileData.fixes.includes('Changed OEBPS directory to EPUB')) {
+                            fileData.fixes.push('Changed OEBPS directory to EPUB');
+                        }
+                    }
+                    
+                    // Handle cover image placement based on EPUB version
+                    if (fileData.coverImagePath && path.includes(fileData.coverImagePath)) {
+                        const filename = path.split('/').pop();
+                        
+                        // Get EPUB version to determine placement
+                        const opfContent = await this.getFileContent(fileData, fileData.opfPath);
+                        const parser = new DOMParser();
+                        const opfDoc = parser.parseFromString(opfContent, 'text/xml');
+                        const epubVersion = opfDoc.documentElement.getAttribute('version');
+                        
+                        if (epubVersion === '2.0') {
+                            // For EPUB 2.0, place cover image at root level as cover.jpeg
+                            const epubDir = fileData.opfDir.includes('OEBPS') ? 'EPUB' : fileData.opfDir;
+                            newPath = `${epubDir}/cover.jpeg`;
+                            fileData.fixes.push('Moved cover image to root level as cover.jpeg for EPUB 2.0');
+                        } else {
+                            // For EPUB 3.0+, use covers/ subdirectory
+                            if (!path.includes('/covers/')) {
+                                newPath = newPath.replace(/\/images\//, '/covers/');
+                                newPath = newPath.replace(filename, 'cover.jpg');
+                                fileData.fixes.push('Moved cover image to covers/cover.jpg');
+                            }
+                        }
+                    }
+                    
+                    fileData.fixedZip.file(newPath, content);
+                }
+            }
+            
+            // Create separate cover.xhtml at EPUB root
+            await this.createSeparateCover(fileData);
+            
+            // Fix OPF file
+            await this.fixOPF(fileData);
+            
+            // Update container.xml
+            await this.fixContainer(fileData);
+        }
+        
+        async downloadFile(filename) {
+            const fileData = this.files.get(filename);
+            if (!fileData || !fileData.fixedZip) return;
+            
+            const blob = await fileData.fixedZip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 9 }
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename.replace('.epub', '_fixed.epub');
+            a.click();
+            URL.revokeObjectURL(url);
         }
     }
 
