@@ -21,7 +21,7 @@ A browser-based tool to automatically detect and fix common EPUB cover display i
 
 ## Hosted Version
 
-Use my hosted versions at https://rm-covers.scottlabs.io/
+Use my hosted version at https://rm-covers.scottlabs.io/
 
 ## Run Yourself
 
