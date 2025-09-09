@@ -107,10 +107,10 @@
 <body class="min-h-screen bg-background font-sans antialiased">
     <div class="container mx-auto max-w-4xl p-6 space-y-8">
         <!-- Main Card Container -->
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-8">
+        <div class="bg-card text-card-foreground p-6 space-y-8">
         <div class="space-y-2">
-            <h1 class="text-3xl font-bold tracking-tight text-foreground">EPUB Cover Fixer for reMarkable</h1>
-            <p class="text-muted-foreground">Automatically detect and fix common EPUB cover display issues on reMarkable devices. Now supports multiple files!</p>
+            <h1 class="text-3xl font-bold tracking-tight text-foreground">Fix eBook Covers</h1>
+            <p class="text-muted-foreground">Automatically detect and fix common EPUB cover display issues on reMarkable devices. Runs entirely in the browser, no data is sent to a server.</p>
         </div>
         
         <!-- Upload Area -->
@@ -127,9 +127,6 @@
                     <p class="text-lg font-medium">Drop EPUB files here or click to browse</p>
                     <p class="text-sm text-muted-foreground">Supports multiple .epub files • Drag & drop or click to select</p>
                 </div>
-                <button type="button" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
-                    Select Files
-                </button>
             </div>
         </div>
         
@@ -140,8 +137,7 @@
         
         <!-- File List -->
         <div id="fileListContainer" style="display: none;">
-            <div class="rounded-lg border bg-card">
-                <div class="p-6">
+            <div class="p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-semibold">Selected Files</h2>
                         <div class="flex items-center gap-2" id="batchButtonsContainer">
