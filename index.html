@@ -311,11 +311,21 @@
                 toggle.addEventListener('click', () => this.toggleTheme());
                 toggle.addEventListener('mouseenter', () => this.showTooltip());
                 toggle.addEventListener('mouseleave', () => this.hideTooltip());
+                // Hide tooltip on touch devices after interaction
+                toggle.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.toggleTheme();
+                    setTimeout(() => this.hideTooltip(), 100);
+                });
             }
             
             if (githubButton) {
                 githubButton.addEventListener('mouseenter', () => this.showGithubTooltip());
                 githubButton.addEventListener('mouseleave', () => this.hideGithubTooltip());
+                // Hide tooltip on touch devices after interaction
+                githubButton.addEventListener('touchend', () => {
+                    setTimeout(() => this.hideGithubTooltip(), 100);
+                });
             }
         }
 
@@ -328,6 +338,8 @@
             } else {
                 this.ensureScheme(null); // Switch to auto
             }
+            // Hide tooltip after theme change (for mobile)
+            this.hideTooltip();
         }
 
         showTooltip() {
