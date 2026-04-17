@@ -32,3 +32,8 @@ Use my hosted version at https://rm-covers.scottlabs.io/
 5. Download the corrected EPUB files
 
 Compatible with both EPUB 2.0 and 3.0+ formats.
+
+## License
+Copyright (C) 2025 Mitchell Scott
+
+Licensed under the GNU General Public License v3.0.
